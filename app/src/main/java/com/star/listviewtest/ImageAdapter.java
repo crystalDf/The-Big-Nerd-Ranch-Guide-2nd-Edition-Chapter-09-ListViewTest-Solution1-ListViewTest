@@ -14,6 +14,10 @@ import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 
+import org.apache.commons.io.IOUtils;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -136,23 +140,21 @@ public class ImageAdapter extends ArrayAdapter<String> {
                 httpURLConnection.setConnectTimeout(5 * 1000);
                 httpURLConnection.setReadTimeout(10 * 1000);
 
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                IOUtils.copy(httpURLConnection.getInputStream(), byteArrayOutputStream);
+                byte[] bytes = byteArrayOutputStream.toByteArray();
+
                 final BitmapFactory.Options options = new BitmapFactory.Options();
 
                 options.inJustDecodeBounds = true;
 
-                BitmapFactory.decodeStream(httpURLConnection.getInputStream(), null, options);
-
-                httpURLConnection.disconnect();
-
-                httpURLConnection = (HttpURLConnection) url.openConnection();
-                httpURLConnection.setConnectTimeout(5 * 1000);
-                httpURLConnection.setReadTimeout(10 * 1000);
+                BitmapFactory.decodeStream(new ByteArrayInputStream(bytes), null, options);
 
                 options.inSampleSize = calculateInSampleSize(options, requiredWidth, requiredHeight);
 
                 options.inJustDecodeBounds = false;
 
-                return BitmapFactory.decodeStream(httpURLConnection.getInputStream(), null, options);
+                return BitmapFactory.decodeStream(new ByteArrayInputStream(bytes), null, options);
 
             } catch (IOException e) {
                 e.printStackTrace();
