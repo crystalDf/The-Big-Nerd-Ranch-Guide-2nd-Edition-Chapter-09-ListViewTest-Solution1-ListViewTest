@@ -28,13 +28,13 @@ public class ImageAdapter extends ArrayAdapter<String> {
     public ImageAdapter(Context context, int resource, String[] objects) {
         super(context, resource, objects);
 
-        int maxMemory = (int) Runtime.getRuntime().maxMemory();
+        int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
         int cacheSize = maxMemory / 8;
 
         mMemoryCache = new LruCache<String, BitmapDrawable>(cacheSize) {
             @Override
             protected int sizeOf(String key, BitmapDrawable bitmapDrawable) {
-                return bitmapDrawable.getBitmap().getByteCount();
+                return bitmapDrawable.getBitmap().getByteCount() / 1024;
             }
         };
     }
@@ -91,6 +91,7 @@ public class ImageAdapter extends ArrayAdapter<String> {
             mUrl = params[0];
 
             Bitmap bitmap = downloadBitmap(mUrl);
+
             BitmapDrawable bitmapDrawable = new BitmapDrawable(getContext().getResources(), bitmap);
 
             addBitmapToMemoryCache(mUrl, bitmapDrawable);
@@ -111,16 +112,48 @@ public class ImageAdapter extends ArrayAdapter<String> {
         private Bitmap downloadBitmap(String imageUrl) {
             Bitmap bitmap = null;
 
+            try {
+
+                URL url = new URL(imageUrl);
+
+                bitmap = decodeSampledBitmapFromStream(url, 300, 100);
+
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+
+            return bitmap;
+        }
+
+        private Bitmap decodeSampledBitmapFromStream(URL url,
+                                                     int requiredWidth, int requiredHeight) {
+
             HttpURLConnection httpURLConnection = null;
 
             try {
-                URL url = new URL(imageUrl);
+
                 httpURLConnection = (HttpURLConnection) url.openConnection();
                 httpURLConnection.setConnectTimeout(5 * 1000);
                 httpURLConnection.setReadTimeout(10 * 1000);
-                bitmap = BitmapFactory.decodeStream(httpURLConnection.getInputStream());
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
+
+                final BitmapFactory.Options options = new BitmapFactory.Options();
+
+                options.inJustDecodeBounds = true;
+
+                BitmapFactory.decodeStream(httpURLConnection.getInputStream(), null, options);
+
+                httpURLConnection.disconnect();
+
+                httpURLConnection = (HttpURLConnection) url.openConnection();
+                httpURLConnection.setConnectTimeout(5 * 1000);
+                httpURLConnection.setReadTimeout(10 * 1000);
+
+                options.inSampleSize = calculateInSampleSize(options, requiredWidth, requiredHeight);
+
+                options.inJustDecodeBounds = false;
+
+                return BitmapFactory.decodeStream(httpURLConnection.getInputStream(), null, options);
+
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -129,7 +162,26 @@ public class ImageAdapter extends ArrayAdapter<String> {
                 }
             }
 
-            return bitmap;
+            return null;
         }
+
+        private int calculateInSampleSize(BitmapFactory.Options options,
+                                          int requiredWidth, int requiredHeight) {
+
+            final int width = options.outWidth;
+            final int height = options.outHeight;
+
+            int inSampleSize = 1;
+
+            if (width > requiredWidth || height > requiredHeight) {
+                final int widthRatio = width / requiredWidth;
+                final int heightRatio = height / requiredHeight;
+
+                inSampleSize = Math.min(widthRatio, heightRatio);
+            }
+
+            return inSampleSize;
+        }
+
     }
 }
