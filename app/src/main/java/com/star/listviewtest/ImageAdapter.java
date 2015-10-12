@@ -158,13 +158,13 @@ public class ImageAdapter extends ArrayAdapter<String> {
 
             } catch (IOException e) {
                 e.printStackTrace();
+                return null;
             } finally {
                 if (httpURLConnection != null) {
                     httpURLConnection.disconnect();
                 }
             }
 
-            return null;
         }
 
         private int calculateInSampleSize(BitmapFactory.Options options,
